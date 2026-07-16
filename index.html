@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>CC FTE & Erlang C Calculator</title>
+  <title>CC FTE, SL & Incoming Volume Calculator</title>
   <style>
     :root{
       --bg:#f5f7fb;
@@ -104,6 +104,49 @@
     }
     .small-table table{min-width:0}
     .small-table th,.small-table td{font-size:12px}
+    .simulator-card{margin-top:22px}
+    .sim-grid{display:grid;grid-template-columns:repeat(6,minmax(130px,1fr));gap:12px}
+    .sim-results{display:grid;grid-template-columns:repeat(6,minmax(130px,1fr));gap:12px;margin-top:16px}
+    .result-box{
+      background:linear-gradient(180deg,#ffffff,#fafaff);border:1px solid var(--border);
+      border-radius:15px;padding:15px;min-height:92px;
+    }
+    .result-box .r-label{font-size:11px;color:var(--muted);font-weight:800;text-transform:uppercase;letter-spacing:.03em}
+    .result-box .r-value{font-size:24px;font-weight:900;margin-top:7px}
+    .result-box .r-sub{font-size:11px;color:var(--muted);margin-top:4px;line-height:1.35}
+    .status-pass{color:var(--accent)}
+    .status-fail{color:var(--danger)}
+    .status-warn{color:#b26700}
+    .agent-input{width:82px;text-align:center;padding:8px 9px}
+    .import-card{margin-top:22px}
+    .import-grid{display:grid;grid-template-columns:repeat(4,minmax(160px,1fr));gap:12px}
+    .file-drop{
+      border:2px dashed #d7d2f7;border-radius:16px;padding:18px;text-align:center;
+      background:#faf9ff;transition:.2s ease;cursor:pointer;
+    }
+    .file-drop:hover,.file-drop.drag{border-color:var(--primary-2);background:#f3f0ff}
+    .file-drop input{display:none}
+    .file-drop strong{display:block;font-size:14px;margin-bottom:5px}
+    .file-drop span{font-size:11px;color:var(--muted)}
+    .import-status{
+      margin-top:12px;padding:12px 14px;border-radius:12px;background:#f7f8fc;
+      border:1px solid var(--border);font-size:12px;color:#50586f;line-height:1.5;
+    }
+    .import-kpis{display:grid;grid-template-columns:repeat(5,minmax(120px,1fr));gap:10px;margin-top:14px}
+    .import-kpi{border:1px solid var(--border);border-radius:13px;padding:12px;background:#fff}
+    .import-kpi .i-label{font-size:10px;color:var(--muted);font-weight:800;text-transform:uppercase}
+    .import-kpi .i-value{font-size:20px;font-weight:900;margin-top:5px}
+    .preview-wrap{margin-top:14px;max-height:280px;overflow:auto;border:1px solid var(--border);border-radius:13px}
+    .preview-wrap table{min-width:700px}
+    .preview-wrap th,.preview-wrap td{text-align:left}
+    .hidden{display:none!important}
+    @media(max-width:1200px){
+      .import-grid{grid-template-columns:repeat(2,1fr)}
+      .import-kpis{grid-template-columns:repeat(3,1fr)}
+    }
+    @media(max-width:1200px){
+      .sim-grid,.sim-results{grid-template-columns:repeat(3,1fr)}
+    }
     @media(max-width:1000px){
       .grid{grid-template-columns:1fr}
       .kpi-grid{grid-template-columns:repeat(2,1fr)}
@@ -122,8 +165,8 @@
 <body>
 <div class="shell">
   <section class="hero">
-    <h1>CC FTE & Erlang C Calculator</h1>
-    <p>Kalkulator manpower Contact Center 24/7 untuk menghitung kebutuhan agent online, agent terjadwal per shift, kebutuhan harian, dan roster headcount bulanan.</p>
+    <h1>CC FTE, SL & Incoming Volume Calculator</h1>
+    <p>Kalkulator manpower Contact Center 24/7 untuk menghitung kebutuhan FTE sekaligus mensimulasikan potensi Service Level berdasarkan jumlah agent yang tersedia.</p>
   </section>
 
   <div class="grid">
@@ -191,6 +234,105 @@
     </aside>
 
     <main>
+      <section class="card import-card">
+        <div class="section-title">
+          <div>
+            <h2 style="margin-bottom:5px">Import Incoming Volume</h2>
+            <div class="hint">Upload data bulanan atau harian. Sistem akan membaca file, mendeteksi struktur, lalu mengisi volume bulanan secara otomatis.</div>
+          </div>
+          <span class="badge">CSV / XLS / XLSX</span>
+        </div>
+
+        <label class="file-drop" id="fileDrop" for="incomingFile">
+          <input id="incomingFile" type="file" accept=".csv,.xls,.xlsx">
+          <strong>Klik atau tarik file ke area ini</strong>
+          <span>Format yang didukung: CSV, Excel XLS, dan XLSX</span>
+        </label>
+
+        <div class="import-grid" style="margin-top:14px">
+          <div class="field">
+            <label>Sheet</label>
+            <select id="importSheet" disabled>
+              <option value="">Belum ada file</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Struktur Data</label>
+            <select id="importMode">
+              <option value="auto">Auto Detect</option>
+              <option value="daily">Harian — satu baris per tanggal</option>
+              <option value="monthly">Bulanan — satu baris per bulan</option>
+              <option value="wide">Bulanan — Jan s.d. Dec sebagai kolom</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Format Tanggal</label>
+            <select id="dateFormat">
+              <option value="auto">Auto Detect</option>
+              <option value="dmy">DD/MM/YYYY</option>
+              <option value="mdy">MM/DD/YYYY</option>
+              <option value="ymd">YYYY-MM-DD</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Tahun yang Diambil</label>
+            <input id="importYear" type="number" min="2020" max="2100" value="2026">
+          </div>
+          <div class="field">
+            <label>Kolom Tanggal / Bulan</label>
+            <select id="periodColumn" disabled>
+              <option value="">Auto Detect</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Kolom Volume Incoming</label>
+            <select id="volumeColumn" disabled>
+              <option value="">Auto Detect</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Kolom Tahun (Opsional)</label>
+            <select id="yearColumn" disabled>
+              <option value="">Tidak ada / dari tanggal</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Baris Header</label>
+            <input id="headerRow" type="number" min="1" max="50" step="1" value="1">
+          </div>
+        </div>
+
+        <div class="actions">
+          <button class="btn-primary" id="applyImportBtn" onclick="applyImportedData()" disabled>Terapkan ke Kalkulator</button>
+          <button class="btn-secondary" onclick="clearImport()">Bersihkan Import</button>
+          <button class="btn-outline" onclick="downloadMonthlyTemplate()">Template Bulanan</button>
+          <button class="btn-outline" onclick="downloadDailyTemplate()">Template Harian</button>
+        </div>
+
+        <div class="import-status" id="importStatus">
+          Belum ada file. Template paling sederhana: <strong>Tanggal | Incoming</strong> untuk data harian atau <strong>Bulan | Volume</strong> untuk data bulanan.
+        </div>
+
+        <div class="import-kpis hidden" id="importKpis">
+          <div class="import-kpi"><div class="i-label">Rows Read</div><div class="i-value" id="impRows">0</div></div>
+          <div class="import-kpi"><div class="i-label">Rows Used</div><div class="i-value" id="impUsed">0</div></div>
+          <div class="import-kpi"><div class="i-label">Rows Skipped</div><div class="i-value" id="impSkipped">0</div></div>
+          <div class="import-kpi"><div class="i-label">Total Volume</div><div class="i-value" id="impTotal">0</div></div>
+          <div class="import-kpi"><div class="i-label">Detected Type</div><div class="i-value" id="impType" style="font-size:15px">-</div></div>
+        </div>
+
+        <div class="preview-wrap hidden" id="previewWrap">
+          <table>
+            <thead id="previewHead"></thead>
+            <tbody id="previewBody"></tbody>
+          </table>
+        </div>
+
+        <div class="note">
+          <strong>Catatan:</strong> data harian akan diakumulasi menjadi total per bulan. Untuk Excel, kalkulator memakai library SheetJS dari browser; bila perangkat sedang offline, simpan file sebagai CSV lalu upload kembali.
+        </div>
+      </section>
+
       <section class="card">
         <div class="section-title">
           <h2>Ringkasan Kebutuhan</h2>
@@ -228,8 +370,11 @@
                 <th>Hari</th>
                 <th>Calls/Jam</th>
                 <th>Traffic Erlang</th>
-                <th>Agent Online</th>
-                <th>Projected SL</th>
+                <th>Required Online</th>
+                <th>SL @ Required</th>
+                <th>Available Online</th>
+                <th>Potential SL</th>
+                <th>Occupancy</th>
                 <th>Agent/Shift</th>
                 <th>Shift/Hari</th>
                 <th>Scheduled/Hari</th>
@@ -245,12 +390,92 @@
           <strong>Catatan penting:</strong> hasil berbasis rata-rata bulanan dan distribusi call merata. Untuk keputusan staffing final, masukkan pola interval 30 menit agar peak hour, pola weekday-weekend, dan seasonality dapat tercermin.
         </div>
       </section>
+
+      <section class="card simulator-card">
+        <div class="section-title">
+          <div>
+            <h2 style="margin-bottom:5px">SL Potential Simulator</h2>
+            <div class="hint">Masukkan workload dan jumlah agent online simultan untuk melihat potensi Service Level yang dapat dicapai.</div>
+          </div>
+          <span class="badge">Reverse Erlang C</span>
+        </div>
+
+        <div class="sim-grid">
+          <div class="field">
+            <label>Call Volume Bulanan</label>
+            <input id="simVolume" type="number" min="0" step="1" value="11527">
+          </div>
+          <div class="field">
+            <label>Hari Operasional</label>
+            <input id="simDays" type="number" min="1" max="31" step="1" value="31">
+          </div>
+          <div class="field">
+            <label>Jam Operasi / Hari</label>
+            <input id="simOpHours" type="number" min="1" max="24" step="0.5" value="24">
+          </div>
+          <div class="field">
+            <label>AHT (detik)</label>
+            <input id="simAHT" type="number" min="1" step="1" value="300">
+          </div>
+          <div class="field">
+            <label>SL Threshold (detik)</label>
+            <input id="simThreshold" type="number" min="1" step="1" value="30">
+          </div>
+          <div class="field">
+            <label>Target SL (%)</label>
+            <input id="simTargetSL" type="number" min="1" max="99.9" step="0.1" value="92">
+          </div>
+          <div class="field">
+            <label>Agent Online Available</label>
+            <input id="simAgents" type="number" min="1" step="1" value="4">
+            <div class="hint">Agent yang benar-benar login dan siap menerima call.</div>
+          </div>
+        </div>
+
+        <div class="sim-results">
+          <div class="result-box">
+            <div class="r-label">Calls per Hour</div>
+            <div class="r-value" id="simCallsHour">-</div>
+            <div class="r-sub">Rata-rata selama jam operasi</div>
+          </div>
+          <div class="result-box">
+            <div class="r-label">Traffic</div>
+            <div class="r-value" id="simTraffic">-</div>
+            <div class="r-sub">Offered load dalam Erlang</div>
+          </div>
+          <div class="result-box">
+            <div class="r-label">Occupancy</div>
+            <div class="r-value" id="simOccupancy">-</div>
+            <div class="r-sub">Traffic ÷ agent online</div>
+          </div>
+          <div class="result-box">
+            <div class="r-label">Probability Wait</div>
+            <div class="r-value" id="simWait">-</div>
+            <div class="r-sub">Peluang call harus antre</div>
+          </div>
+          <div class="result-box">
+            <div class="r-label">Estimated ASA</div>
+            <div class="r-value" id="simASA">-</div>
+            <div class="r-sub">Average Speed of Answer</div>
+          </div>
+          <div class="result-box">
+            <div class="r-label">Potential SL</div>
+            <div class="r-value" id="simSL">-</div>
+            <div class="r-sub" id="simStatus">-</div>
+          </div>
+        </div>
+
+        <div class="note">
+          <strong>Interpretasi:</strong> target SL hanya dipakai sebagai pembanding. Potensi SL dihitung dari volume, pola jam operasi, AHT, threshold, dan jumlah agent online. Bila traffic sama dengan atau lebih besar dari agent online, antrean secara matematis tidak stabil.
+        </div>
+      </section>
     </main>
   </div>
 
-  <div class="footer">Standalone HTML • Data tersimpan otomatis di browser</div>
+  <div class="footer">Standalone HTML • Import incoming volume • Data tersimpan otomatis di browser</div>
 </div>
 
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 <script>
 const months = [
   {name:"Jan", volume:0},
@@ -268,6 +493,16 @@ const months = [
 ];
 
 let latestResults = [];
+let importState = {
+  fileName:"",
+  workbook:null,
+  sheetNames:[],
+  rawMatrix:[],
+  headers:[],
+  rows:[],
+  detectedMode:"auto"
+};
+let availableAgents = [0,4,4,4,4,4,4,4,4,4,4,4];
 
 function daysInMonth(year, monthIndex){
   return new Date(year, monthIndex + 1, 0).getDate();
@@ -293,6 +528,12 @@ function serviceLevel(traffic, agents, targetSeconds, ahtSeconds){
   if(agents <= traffic) return 0;
   const pw = erlangC(traffic, agents);
   return 1 - pw * Math.exp(-(agents - traffic) * (targetSeconds / ahtSeconds));
+}
+
+function averageSpeedOfAnswer(traffic, agents, ahtSeconds){
+  if(traffic <= 0) return 0;
+  if(agents <= traffic) return Infinity;
+  return erlangC(traffic, agents) * ahtSeconds / (agents - traffic);
 }
 
 function requiredAgents(traffic, slTarget, targetSeconds, ahtSeconds){
@@ -354,6 +595,11 @@ function calculateAll(){
 
     const req = requiredAgents(traffic,p.slTarget,p.slSeconds,p.aht);
     const onlineAgents = req.agents;
+    const availableEl = document.getElementById(`avail-${index}`);
+    const availableOnline = availableEl ? Math.max(0, Math.floor(Number(availableEl.value) || 0)) : (availableAgents[index] || onlineAgents);
+    availableAgents[index] = availableOnline;
+    const potentialSL = availableOnline > 0 ? serviceLevel(traffic,availableOnline,p.slSeconds,p.aht) : 0;
+    const potentialOccupancy = availableOnline > 0 ? traffic / availableOnline : 0;
     const agentPerShift = onlineAgents > 0 ? Math.ceil(onlineAgents / (1-p.shrinkage)) : 0;
     const scheduledDaily = agentPerShift * shiftsPerDay;
 
@@ -364,7 +610,7 @@ function calculateAll(){
 
     rows.push({
       month:m.name, volume, days, callsPerHour, traffic,
-      onlineAgents, projectedSL:req.sl, agentPerShift,
+      onlineAgents, projectedSL:req.sl, availableOnline, potentialSL, potentialOccupancy, agentPerShift,
       shiftsPerDay, scheduledDaily, mathFTE, rosterHC
     });
 
@@ -383,6 +629,7 @@ function calculateAll(){
   document.getElementById("assumptionBadge").textContent =
     `SL ${(p.slTarget*100).toFixed(1).replace(".0","")}% / ${p.slSeconds}s`;
 
+  calculateSLSimulator();
   saveState();
 }
 
@@ -399,6 +646,10 @@ function renderResults(rows){
       <td>${fmtNumber(r.traffic)}</td>
       <td class="strong">${r.onlineAgents}</td>
       <td class="${r.projectedSL>=getInputs().slTarget ? "ok":"warning"}">${fmtNumber(r.projectedSL*100,1)}%</td>
+      <td><input class="agent-input" id="avail-${i}" type="number" min="0" step="1"
+          value="${r.availableOnline}" oninput="calculateAll()"></td>
+      <td class="${r.potentialSL>=getInputs().slTarget ? "ok":"warning"}">${fmtNumber(r.potentialSL*100,1)}%</td>
+      <td class="${r.potentialOccupancy<0.85 ? "ok" : (r.potentialOccupancy<1 ? "warning":"status-fail")}">${fmtNumber(r.potentialOccupancy*100,1)}%</td>
       <td class="strong">${r.agentPerShift}</td>
       <td>${r.shiftsPerDay}</td>
       <td>${r.scheduledDaily}</td>
@@ -419,7 +670,16 @@ function saveState(){
     const el=document.getElementById(`vol-${i}`);
     return el ? Number(el.value.replace(/,/g,""))||0 : m.volume;
   });
-  localStorage.setItem("ccFteCalculator",JSON.stringify({p,volumes}));
+  const simulator = {
+    volume:Number(document.getElementById("simVolume").value)||0,
+    days:Number(document.getElementById("simDays").value)||1,
+    opHours:Number(document.getElementById("simOpHours").value)||24,
+    aht:Number(document.getElementById("simAHT").value)||300,
+    threshold:Number(document.getElementById("simThreshold").value)||30,
+    targetSL:Number(document.getElementById("simTargetSL").value)||92,
+    agents:Number(document.getElementById("simAgents").value)||1
+  };
+  localStorage.setItem("ccFteCalculator",JSON.stringify({p,volumes,availableAgents,simulator}));
 }
 
 function loadState(){
@@ -440,6 +700,18 @@ function loadState(){
     if(Array.isArray(state.volumes)){
       state.volumes.forEach((v,i)=>{ if(months[i]) months[i].volume=v; });
     }
+    if(Array.isArray(state.availableAgents)){
+      availableAgents = state.availableAgents.map(v=>Math.max(0,Math.floor(Number(v)||0)));
+    }
+    if(state.simulator){
+      document.getElementById("simVolume").value=state.simulator.volume ?? 11527;
+      document.getElementById("simDays").value=state.simulator.days ?? 31;
+      document.getElementById("simOpHours").value=state.simulator.opHours ?? 24;
+      document.getElementById("simAHT").value=state.simulator.aht ?? 300;
+      document.getElementById("simThreshold").value=state.simulator.threshold ?? 30;
+      document.getElementById("simTargetSL").value=state.simulator.targetSL ?? 92;
+      document.getElementById("simAgents").value=state.simulator.agents ?? 4;
+    }
     return true;
   }catch(e){ return false; }
 }
@@ -456,18 +728,27 @@ function resetDefaults(){
   document.getElementById("year").value=2026;
   const defaults=[0,9578,9038,12677,10658,11247,11527,11144,11306,11325,11258,11297];
   defaults.forEach((v,i)=>months[i].volume=v);
+  availableAgents=[0,4,4,4,4,4,4,4,4,4,4,4];
+  document.getElementById("simVolume").value=11527;
+  document.getElementById("simDays").value=31;
+  document.getElementById("simOpHours").value=24;
+  document.getElementById("simAHT").value=300;
+  document.getElementById("simThreshold").value=30;
+  document.getElementById("simTargetSL").value=92;
+  document.getElementById("simAgents").value=4;
   initialRender();
 }
 
 function exportCSV(){
   if(!latestResults.length) calculateAll();
-  const headers=["Month","Call Volume","Days","Calls per Hour","Traffic Erlang","Online Agents","Projected SL","Agents per Shift","Shifts per Day","Scheduled per Day","Mathematical FTE","Roster HC"];
+  const headers=["Month","Call Volume","Days","Calls per Hour","Traffic Erlang","Required Online","SL at Required","Available Online","Potential SL","Occupancy","Agents per Shift","Shifts per Day","Scheduled per Day","Mathematical FTE","Roster HC"];
   const lines=[headers.join(",")];
   latestResults.forEach(r=>{
     lines.push([
       r.month,r.volume,r.days,r.callsPerHour.toFixed(2),r.traffic.toFixed(2),
-      r.onlineAgents,(r.projectedSL*100).toFixed(1)+"%",r.agentPerShift,
-      r.shiftsPerDay,r.scheduledDaily,r.mathFTE.toFixed(2),r.rosterHC
+      r.onlineAgents,(r.projectedSL*100).toFixed(1)+"%",r.availableOnline,
+      (r.potentialSL*100).toFixed(1)+"%",(r.potentialOccupancy*100).toFixed(1)+"%",
+      r.agentPerShift,r.shiftsPerDay,r.scheduledDaily,r.mathFTE.toFixed(2),r.rosterHC
     ].join(","));
   });
   const blob=new Blob([lines.join("\n")],{type:"text/csv;charset=utf-8;"});
@@ -477,11 +758,543 @@ function exportCSV(){
   URL.revokeObjectURL(url);
 }
 
+
+function normalizeHeader(value){
+  return String(value ?? "")
+    .trim().toLowerCase()
+    .normalize("NFD").replace(/[\u0300-\u036f]/g,"")
+    .replace(/[^a-z0-9]+/g," ")
+    .trim();
+}
+
+function parseDelimited(text){
+  const firstLines = text.replace(/^\uFEFF/,"").split(/\r?\n/).slice(0,8);
+  const candidates = [",",";","\t","|"];
+  let delimiter = ",";
+  let best = -1;
+  candidates.forEach(d=>{
+    const score = firstLines.reduce((s,line)=>s + countDelimiterOutsideQuotes(line,d),0);
+    if(score>best){best=score;delimiter=d;}
+  });
+
+  const rows=[];
+  let row=[], cell="", quoted=false;
+  for(let i=0;i<text.length;i++){
+    const ch=text[i], next=text[i+1];
+    if(ch === '"'){
+      if(quoted && next === '"'){cell+='"';i++;}
+      else quoted=!quoted;
+    }else if(ch===delimiter && !quoted){
+      row.push(cell);cell="";
+    }else if((ch==="\n" || ch==="\r") && !quoted){
+      if(ch==="\r" && next==="\n") i++;
+      row.push(cell);cell="";
+      if(row.some(v=>String(v).trim()!=="")) rows.push(row);
+      row=[];
+    }else{
+      cell+=ch;
+    }
+  }
+  row.push(cell);
+  if(row.some(v=>String(v).trim()!=="")) rows.push(row);
+  return rows;
+}
+
+function countDelimiterOutsideQuotes(line,delimiter){
+  let quoted=false,count=0;
+  for(let i=0;i<line.length;i++){
+    if(line[i]==='"') quoted=!quoted;
+    else if(line[i]===delimiter && !quoted) count++;
+  }
+  return count;
+}
+
+function matrixToObjects(matrix,headerIndex){
+  const header = (matrix[headerIndex] || []).map((h,i)=>{
+    const clean=String(h ?? "").trim();
+    return clean || `Column ${i+1}`;
+  });
+  const unique=[];
+  const seen={};
+  header.forEach(h=>{
+    seen[h]=(seen[h]||0)+1;
+    unique.push(seen[h]===1?h:`${h} ${seen[h]}`);
+  });
+  const rows=matrix.slice(headerIndex+1)
+    .filter(r=>r.some(v=>String(v ?? "").trim()!==""))
+    .map(r=>{
+      const obj={};
+      unique.forEach((h,i)=>obj[h]=r[i] ?? "");
+      return obj;
+    });
+  return {headers:unique,rows};
+}
+
+function populateColumnSelectors(){
+  const selectors=["periodColumn","volumeColumn","yearColumn"];
+  selectors.forEach(id=>{
+    const sel=document.getElementById(id);
+    const first=id==="yearColumn"?"Tidak ada / dari tanggal":"Auto Detect";
+    sel.innerHTML=`<option value="">${first}</option>`;
+    importState.headers.forEach(h=>{
+      const o=document.createElement("option");
+      o.value=h;o.textContent=h;sel.appendChild(o);
+    });
+    sel.disabled=importState.headers.length===0;
+  });
+
+  const period=guessColumn(["tanggal","date","interaction date","call date","hari","day","bulan","month","periode","period"]);
+  const volume=guessColumn(["incoming","volume","call volume","calls","offered","received","jumlah call","total call","contacts","count"]);
+  const year=guessColumn(["tahun","year"]);
+  if(period) document.getElementById("periodColumn").value=period;
+  if(volume) document.getElementById("volumeColumn").value=volume;
+  if(year) document.getElementById("yearColumn").value=year;
+}
+
+function guessColumn(keywords){
+  let best="",score=0;
+  importState.headers.forEach(h=>{
+    const n=normalizeHeader(h);
+    keywords.forEach((k,index)=>{
+      const nk=normalizeHeader(k);
+      let s=0;
+      if(n===nk) s=100-index;
+      else if(n.includes(nk)) s=50-index;
+      else if(nk.includes(n) && n.length>2) s=20-index;
+      if(s>score){score=s;best=h;}
+    });
+  });
+  return best;
+}
+
+function monthFromValue(value,dateFormat="auto"){
+  if(value instanceof Date && !isNaN(value)) return {month:value.getMonth(),year:value.getFullYear(),date:value};
+  if(typeof value==="number"){
+    if(value>=1 && value<=12) return {month:Math.floor(value)-1,year:null,date:null};
+    if(typeof XLSX!=="undefined" && XLSX.SSF && value>20000){
+      const d=XLSX.SSF.parse_date_code(value);
+      if(d) return {month:d.m-1,year:d.y,date:new Date(d.y,d.m-1,d.d)};
+    }
+  }
+
+  const raw=String(value ?? "").trim();
+  if(!raw) return null;
+  const low=raw.toLowerCase().replace(/\./g,"").trim();
+  const names={
+    jan:0,january:0,januari:0,
+    feb:1,february:1,februari:1,
+    mar:2,march:2,maret:2,
+    apr:3,april:3,
+    may:4,mei:4,
+    jun:5,june:5,juni:5,
+    jul:6,july:6,juli:6,
+    aug:7,august:7,agu:7,agustus:7,
+    sep:8,september:8,
+    oct:9,october:9,okt:9,oktober:9,
+    nov:10,november:10,
+    dec:11,december:11,des:11,desember:11
+  };
+  for(const [name,m] of Object.entries(names)){
+    if(low===name || low.startsWith(name+" ") || low.includes(" "+name+" ")){
+      const y=(low.match(/\b(20\d{2}|19\d{2})\b/)||[])[1];
+      return {month:m,year:y?Number(y):null,date:null};
+    }
+  }
+  if(/^\d{1,2}$/.test(low)){
+    const m=Number(low);
+    if(m>=1&&m<=12) return {month:m-1,year:null,date:null};
+  }
+
+  const date=parseFlexibleDate(raw,dateFormat);
+  if(date) return {month:date.getMonth(),year:date.getFullYear(),date};
+  return null;
+}
+
+function parseFlexibleDate(value,format="auto"){
+  if(value instanceof Date && !isNaN(value)) return value;
+  if(typeof value==="number" && typeof XLSX!=="undefined" && XLSX.SSF){
+    const d=XLSX.SSF.parse_date_code(value);
+    if(d) return new Date(d.y,d.m-1,d.d);
+  }
+  const s=String(value ?? "").trim();
+  if(!s) return null;
+
+  const iso=s.match(/^(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})/);
+  if(iso){
+    const d=new Date(Number(iso[1]),Number(iso[2])-1,Number(iso[3]));
+    return isNaN(d)?null:d;
+  }
+
+  const m=s.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})/);
+  if(m){
+    let a=Number(m[1]),b=Number(m[2]),y=Number(m[3]);
+    if(y<100) y+=2000;
+    let day,month;
+    if(format==="mdy"){month=a;day=b;}
+    else if(format==="dmy"){day=a;month=b;}
+    else{
+      if(a>12){day=a;month=b;}
+      else if(b>12){month=a;day=b;}
+      else{day=a;month=b;}
+    }
+    const d=new Date(y,month-1,day);
+    if(d.getFullYear()===y && d.getMonth()===month-1 && d.getDate()===day) return d;
+  }
+
+  const native=new Date(s);
+  if(!isNaN(native)) return native;
+  return null;
+}
+
+function parseVolume(value){
+  if(typeof value==="number") return Number.isFinite(value)?value:0;
+  let s=String(value ?? "").trim().replace(/\s/g,"");
+  if(!s) return 0;
+  s=s.replace(/[^\d.,\-]/g,"");
+  if(!s) return 0;
+
+  const comma=(s.match(/,/g)||[]).length;
+  const dot=(s.match(/\./g)||[]).length;
+
+  if(comma && dot){
+    const lastComma=s.lastIndexOf(","), lastDot=s.lastIndexOf(".");
+    const decimal=lastComma>lastDot?",":".";
+    const thousand=decimal===","?".":",";
+    s=s.split(thousand).join("");
+    const parts=s.split(decimal);
+    if(parts.length>1 && parts[parts.length-1].length<=2){
+      s=parts.slice(0,-1).join("")+"."+parts[parts.length-1];
+    }else s=parts.join("");
+  }else if(comma||dot){
+    const sep=comma?",":".";
+    const parts=s.split(sep);
+    if(parts.length>2) s=parts.join("");
+    else if(parts.length===2){
+      const decimals=parts[1].length;
+      if(decimals===3) s=parts.join("");
+      else s=parts[0]+"."+parts[1];
+    }
+  }
+  const n=Number(s);
+  return Number.isFinite(n)?n:0;
+}
+
+function monthHeaderIndex(header){
+  const n=normalizeHeader(header);
+  const map=[
+    ["jan","january","januari"],["feb","february","februari"],["mar","march","maret"],
+    ["apr","april"],["may","mei"],["jun","june","juni"],["jul","july","juli"],
+    ["aug","august","agu","agustus"],["sep","september"],["oct","october","okt","oktober"],
+    ["nov","november"],["dec","december","des","desember"]
+  ];
+  for(let i=0;i<map.length;i++){
+    if(map[i].some(k=>n===k || n.startsWith(k+" ") || n.endsWith(" "+k))) return i;
+  }
+  return -1;
+}
+
+function detectImportMode(){
+  const requested=document.getElementById("importMode").value;
+  if(requested!=="auto") return requested;
+
+  const wideMonths=importState.headers.filter(h=>monthHeaderIndex(h)>=0).length;
+  if(wideMonths>=2) return "wide";
+
+  const period=document.getElementById("periodColumn").value || guessColumn(["tanggal","date","hari","day","bulan","month","periode","period"]);
+  if(period){
+    const sample=importState.rows.slice(0,20).map(r=>r[period]).filter(v=>String(v ?? "").trim()!=="");
+    const dates=sample.filter(v=>parseFlexibleDate(v,document.getElementById("dateFormat").value)).length;
+    if(sample.length && dates/sample.length>=0.5) return "daily";
+  }
+  return "monthly";
+}
+
+function renderImportPreview(){
+  const wrap=document.getElementById("previewWrap");
+  if(!importState.headers.length){wrap.classList.add("hidden");return;}
+  document.getElementById("previewHead").innerHTML="<tr>"+importState.headers.map(h=>`<th>${escapeHtml(h)}</th>`).join("")+"</tr>";
+  document.getElementById("previewBody").innerHTML=importState.rows.slice(0,8).map(r=>
+    "<tr>"+importState.headers.map(h=>`<td>${escapeHtml(String(r[h] ?? ""))}</td>`).join("")+"</tr>"
+  ).join("");
+  wrap.classList.remove("hidden");
+}
+
+function escapeHtml(value){
+  return value.replace(/[&<>"']/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[ch]));
+}
+
+function loadMatrix(matrix,fileName){
+  const headerRow=Math.max(1,Number(document.getElementById("headerRow").value)||1)-1;
+  const converted=matrixToObjects(matrix,headerRow);
+  importState.rawMatrix=matrix;
+  importState.headers=converted.headers;
+  importState.rows=converted.rows;
+  importState.fileName=fileName;
+  populateColumnSelectors();
+  renderImportPreview();
+  importState.detectedMode=detectImportMode();
+  document.getElementById("applyImportBtn").disabled=!importState.rows.length;
+  document.getElementById("importStatus").innerHTML=
+    `<strong>${escapeHtml(fileName)}</strong> dibaca: ${importState.rows.length.toLocaleString("id-ID")} baris data, ${importState.headers.length} kolom. Struktur terdeteksi: <strong>${modeLabel(importState.detectedMode)}</strong>.`;
+}
+
+function loadSelectedSheet(){
+  if(!importState.workbook) return;
+  const sheetName=document.getElementById("importSheet").value;
+  const ws=importState.workbook.Sheets[sheetName];
+  if(!ws) return;
+  const matrix=XLSX.utils.sheet_to_json(ws,{header:1,defval:"",raw:true});
+  loadMatrix(matrix,`${importState.fileName} — ${sheetName}`);
+}
+
+function modeLabel(mode){
+  return {daily:"Harian",monthly:"Bulanan Long",wide:"Bulanan Wide",auto:"Auto"}[mode]||mode;
+}
+
+async function handleIncomingFile(file){
+  if(!file) return;
+  importState.fileName=file.name;
+  const ext=(file.name.split(".").pop()||"").toLowerCase();
+  document.getElementById("importStatus").textContent=`Membaca ${file.name}...`;
+
+  try{
+    if(ext==="csv" || ext==="txt"){
+      const text=await file.text();
+      importState.workbook=null;
+      importState.sheetNames=["CSV"];
+      const sheetSel=document.getElementById("importSheet");
+      sheetSel.innerHTML='<option value="CSV">CSV</option>';
+      sheetSel.disabled=true;
+      loadMatrix(parseDelimited(text),file.name);
+    }else{
+      if(typeof XLSX==="undefined"){
+        throw new Error("Library pembaca Excel belum termuat. Pastikan internet aktif atau simpan file sebagai CSV.");
+      }
+      const buffer=await file.arrayBuffer();
+      const wb=XLSX.read(buffer,{type:"array",cellDates:true});
+      importState.workbook=wb;
+      importState.sheetNames=wb.SheetNames;
+      const sheetSel=document.getElementById("importSheet");
+      sheetSel.innerHTML=wb.SheetNames.map(n=>`<option value="${escapeHtml(n)}">${escapeHtml(n)}</option>`).join("");
+      sheetSel.disabled=wb.SheetNames.length<=1;
+      loadSelectedSheet();
+    }
+  }catch(err){
+    document.getElementById("importStatus").innerHTML=`<span class="status-fail"><strong>File gagal dibaca:</strong> ${escapeHtml(err.message||String(err))}</span>`;
+    document.getElementById("applyImportBtn").disabled=true;
+  }
+}
+
+function aggregateImportedData(){
+  const mode=detectImportMode();
+  const targetYear=Number(document.getElementById("importYear").value)||getInputs().year;
+  const dateFormat=document.getElementById("dateFormat").value;
+  const periodCol=document.getElementById("periodColumn").value || guessColumn(["tanggal","date","hari","day","bulan","month","periode","period"]);
+  const volumeCol=document.getElementById("volumeColumn").value || guessColumn(["incoming","volume","call volume","calls","offered","received","jumlah call","total call","contacts","count"]);
+  const yearCol=document.getElementById("yearColumn").value;
+
+  const totals=Array(12).fill(0);
+  let used=0,skipped=0,total=0;
+  const detectedYears={};
+  const dailyValues=[];
+
+  if(mode==="wide"){
+    const monthColumns=importState.headers
+      .map(h=>({h,m:monthHeaderIndex(h)}))
+      .filter(x=>x.m>=0);
+    importState.rows.forEach(row=>{
+      let rowUsed=false;
+      let rowYear=yearCol?Number(row[yearCol]):null;
+      if(rowYear && rowYear!==targetYear){skipped++;return;}
+      monthColumns.forEach(({h,m})=>{
+        const v=parseVolume(row[h]);
+        if(v || String(row[h] ?? "").trim()!==""){
+          totals[m]+=v;total+=v;rowUsed=true;
+        }
+      });
+      if(rowUsed) used++; else skipped++;
+    });
+  }else{
+    if(!periodCol) throw new Error("Kolom tanggal/bulan belum ditemukan. Pilih kolom secara manual.");
+    if(!volumeCol) throw new Error("Kolom volume incoming belum ditemukan. Pilih kolom secara manual.");
+
+    importState.rows.forEach(row=>{
+      const parsed=monthFromValue(row[periodCol],dateFormat);
+      const volume=parseVolume(row[volumeCol]);
+      if(!parsed || parsed.month<0 || parsed.month>11 || !Number.isFinite(volume)){
+        skipped++;return;
+      }
+      const explicitYear=yearCol?Number(row[yearCol]):null;
+      const rowYear=explicitYear || parsed.year;
+      if(rowYear) detectedYears[rowYear]=(detectedYears[rowYear]||0)+1;
+      if(rowYear && rowYear!==targetYear){skipped++;return;}
+      totals[parsed.month]+=volume;
+      total+=volume;used++;
+      if(mode==="daily") dailyValues.push(volume);
+    });
+  }
+
+  return {
+    totals,used,skipped,total,mode,targetYear,
+    rows:importState.rows.length,
+    avgDaily:dailyValues.length?dailyValues.reduce((a,b)=>a+b,0)/dailyValues.length:null,
+    peakDaily:dailyValues.length?Math.max(...dailyValues):null,
+    detectedYears
+  };
+}
+
+function applyImportedData(){
+  try{
+    const result=aggregateImportedData();
+    result.totals.forEach((v,i)=>months[i].volume=Math.round(v));
+    document.getElementById("year").value=result.targetYear;
+    initialRender();
+
+    document.getElementById("impRows").textContent=result.rows.toLocaleString("id-ID");
+    document.getElementById("impUsed").textContent=result.used.toLocaleString("id-ID");
+    document.getElementById("impSkipped").textContent=result.skipped.toLocaleString("id-ID");
+    document.getElementById("impTotal").textContent=Math.round(result.total).toLocaleString("id-ID");
+    document.getElementById("impType").textContent=modeLabel(result.mode);
+    document.getElementById("importKpis").classList.remove("hidden");
+
+    const extra=result.mode==="daily" && result.avgDaily!==null
+      ? ` Rata-rata harian: <strong>${fmtNumber(result.avgDaily,0)}</strong>; peak harian: <strong>${fmtNumber(result.peakDaily,0)}</strong>.`
+      : "";
+    document.getElementById("importStatus").innerHTML=
+      `<span class="ok"><strong>Import berhasil.</strong></span> ${result.used.toLocaleString("id-ID")} baris digunakan untuk tahun ${result.targetYear}; total incoming ${Math.round(result.total).toLocaleString("id-ID")}.${extra}`;
+  }catch(err){
+    document.getElementById("importStatus").innerHTML=
+      `<span class="status-fail"><strong>Import belum dapat diterapkan:</strong> ${escapeHtml(err.message||String(err))}</span>`;
+  }
+}
+
+function clearImport(){
+  importState={fileName:"",workbook:null,sheetNames:[],rawMatrix:[],headers:[],rows:[],detectedMode:"auto"};
+  document.getElementById("incomingFile").value="";
+  document.getElementById("importSheet").innerHTML='<option value="">Belum ada file</option>';
+  document.getElementById("importSheet").disabled=true;
+  ["periodColumn","volumeColumn","yearColumn"].forEach(id=>{
+    const sel=document.getElementById(id);
+    sel.innerHTML=`<option value="">${id==="yearColumn"?"Tidak ada / dari tanggal":"Auto Detect"}</option>`;
+    sel.disabled=true;
+  });
+  document.getElementById("previewWrap").classList.add("hidden");
+  document.getElementById("importKpis").classList.add("hidden");
+  document.getElementById("applyImportBtn").disabled=true;
+  document.getElementById("importStatus").innerHTML=
+    'Belum ada file. Template paling sederhana: <strong>Tanggal | Incoming</strong> untuk data harian atau <strong>Bulan | Volume</strong> untuk data bulanan.';
+}
+
+function downloadTextFile(filename,content){
+  const blob=new Blob([content],{type:"text/csv;charset=utf-8;"});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement("a");
+  a.href=url;a.download=filename;a.click();
+  URL.revokeObjectURL(url);
+}
+
+function downloadMonthlyTemplate(){
+  downloadTextFile("template_incoming_bulanan.csv",
+`Bulan,Volume
+Jan,0
+Feb,9578
+Mar,9038
+Apr,12677
+May,10658
+Jun,11247
+Jul,11527
+Aug,11144
+Sep,11306
+Oct,11325
+Nov,11258
+Dec,11297`);
+}
+
+function downloadDailyTemplate(){
+  downloadTextFile("template_incoming_harian.csv",
+`Tanggal,Incoming
+2026-07-01,350
+2026-07-02,372
+2026-07-03,401
+2026-07-04,365
+2026-07-05,389`);
+}
+
+function setupImporter(){
+  document.getElementById("importYear").value=document.getElementById("year").value;
+  const fileInput=document.getElementById("incomingFile");
+  fileInput.addEventListener("change",e=>handleIncomingFile(e.target.files[0]));
+  document.getElementById("importSheet").addEventListener("change",loadSelectedSheet);
+  document.getElementById("headerRow").addEventListener("change",()=>{
+    if(importState.rawMatrix.length) loadMatrix(importState.rawMatrix,importState.fileName);
+  });
+  ["importMode","dateFormat","periodColumn","volumeColumn","yearColumn"].forEach(id=>{
+    document.getElementById(id).addEventListener("change",()=>{
+      importState.detectedMode=detectImportMode();
+      if(importState.rows.length){
+        document.getElementById("importStatus").innerHTML=
+          `<strong>${escapeHtml(importState.fileName)}</strong> siap diproses sebagai <strong>${modeLabel(importState.detectedMode)}</strong>.`;
+      }
+    });
+  });
+
+  const drop=document.getElementById("fileDrop");
+  ["dragenter","dragover"].forEach(evt=>drop.addEventListener(evt,e=>{
+    e.preventDefault();drop.classList.add("drag");
+  }));
+  ["dragleave","drop"].forEach(evt=>drop.addEventListener(evt,e=>{
+    e.preventDefault();drop.classList.remove("drag");
+  }));
+  drop.addEventListener("drop",e=>{
+    const file=e.dataTransfer.files[0];
+    if(file) handleIncomingFile(file);
+  });
+}
+
+
+function calculateSLSimulator(){
+  const volume = Math.max(0,Number(document.getElementById("simVolume").value)||0);
+  const days = Math.max(1,Number(document.getElementById("simDays").value)||1);
+  const opHours = Math.max(0.1,Number(document.getElementById("simOpHours").value)||24);
+  const aht = Math.max(1,Number(document.getElementById("simAHT").value)||300);
+  const threshold = Math.max(1,Number(document.getElementById("simThreshold").value)||30);
+  const targetSL = Math.min(99.9,Math.max(0,Number(document.getElementById("simTargetSL").value)||92))/100;
+  const agents = Math.max(1,Math.floor(Number(document.getElementById("simAgents").value)||1));
+
+  const callsHour = volume/(days*opHours);
+  const traffic = callsHour*aht/3600;
+  const occupancy = traffic/agents;
+  const stable = agents>traffic;
+  const pWait = stable ? erlangC(traffic,agents) : 1;
+  const asa = stable ? averageSpeedOfAnswer(traffic,agents,aht) : Infinity;
+  const sl = stable ? serviceLevel(traffic,agents,threshold,aht) : 0;
+  const gap = (sl-targetSL)*100;
+
+  document.getElementById("simCallsHour").textContent=fmtNumber(callsHour,2);
+  document.getElementById("simTraffic").textContent=fmtNumber(traffic,2);
+  document.getElementById("simOccupancy").textContent=fmtNumber(occupancy*100,1)+"%";
+  document.getElementById("simWait").textContent=fmtNumber(pWait*100,1)+"%";
+  document.getElementById("simASA").textContent=Number.isFinite(asa)?fmtNumber(asa,1)+"s":"∞";
+  document.getElementById("simSL").textContent=fmtNumber(sl*100,1)+"%";
+
+  const slEl=document.getElementById("simSL");
+  const statusEl=document.getElementById("simStatus");
+  slEl.className="r-value "+(!stable?"status-fail":(sl>=targetSL?"status-pass":"status-warn"));
+
+  if(!stable){
+    statusEl.textContent=`Tidak stabil: traffic ${fmtNumber(traffic,2)} ≥ ${agents} agent`;
+  }else if(sl>=targetSL){
+    statusEl.textContent=`Target tercapai • surplus ${fmtNumber(gap,1)} poin`;
+  }else{
+    statusEl.textContent=`Di bawah target • gap ${fmtNumber(Math.abs(gap),1)} poin`;
+  }
+}
+
 function initialRender(){
   const p=getInputs();
   const dummy=months.map((m,index)=>({
     month:m.name,volume:m.volume,days:daysInMonth(p.year,index),callsPerHour:0,traffic:0,
-    onlineAgents:0,projectedSL:1,agentPerShift:0,
+    onlineAgents:0,projectedSL:1,availableOnline:availableAgents[index]||0,potentialSL:0,potentialOccupancy:0,agentPerShift:0,
     shiftsPerDay:Math.ceil(p.operationHours/p.shiftHours),scheduledDaily:0,mathFTE:0,rosterHC:0
   }));
   renderResults(dummy);
@@ -489,9 +1302,19 @@ function initialRender(){
 }
 
 ["slTarget","slSeconds","aht","shrinkage","operationHours","shiftHours","workDays","year"]
-  .forEach(id=>document.getElementById(id).addEventListener("input",calculateAll));
+  .forEach(id=>document.getElementById(id).addEventListener("input",()=>{
+    if(id==="year" && document.getElementById("importYear")) document.getElementById("importYear").value=document.getElementById("year").value;
+    calculateAll();
+  }));
+
+["simVolume","simDays","simOpHours","simAHT","simThreshold","simTargetSL","simAgents"]
+  .forEach(id=>document.getElementById(id).addEventListener("input",()=>{
+    calculateSLSimulator();
+    saveState();
+  }));
 
 loadState();
+setupImporter();
 initialRender();
 </script>
 </body>

@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CC FTE & Erlang C Calculator</title>
+  <style>
+    :root{
+      --bg:#f5f7fb;
+      --card:#ffffff;
+      --text:#182033;
+      --muted:#687085;
+      --primary:#5b43d6;
+      --primary-2:#7b61ff;
+      --accent:#12a594;
+      --danger:#d64545;
+      --border:#e5e8f0;
+      --shadow:0 14px 36px rgba(32, 38, 66, .10);
+      --radius:18px;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      font-family:Inter,Segoe UI,Roboto,Arial,sans-serif;
+      background:
+        radial-gradient(circle at top right, rgba(123,97,255,.12), transparent 30%),
+        linear-gradient(180deg,#f8f9fd 0%,#f3f5fa 100%);
+      color:var(--text);
+    }
+    .shell{max-width:1440px;margin:auto;padding:28px}
+    .hero{
+      background:linear-gradient(135deg,#201650 0%,#5b43d6 58%,#765dff 100%);
+      color:white;border-radius:26px;padding:30px 34px;
+      box-shadow:var(--shadow);position:relative;overflow:hidden;
+    }
+    .hero:after{
+      content:"";position:absolute;right:-80px;top:-90px;width:280px;height:280px;
+      border-radius:50%;background:rgba(255,255,255,.08);
+    }
+    .hero h1{margin:0 0 8px;font-size:clamp(26px,4vw,42px)}
+    .hero p{margin:0;color:rgba(255,255,255,.82);max-width:900px;line-height:1.6}
+    .grid{display:grid;grid-template-columns:380px 1fr;gap:22px;margin-top:22px}
+    .card{
+      background:var(--card);border:1px solid var(--border);border-radius:var(--radius);
+      padding:22px;box-shadow:0 8px 24px rgba(33,41,72,.06);
+    }
+    .card h2{font-size:18px;margin:0 0 16px}
+    .section-title{
+      display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:14px;
+    }
+    .badge{
+      display:inline-flex;align-items:center;padding:5px 9px;border-radius:999px;
+      background:#efedff;color:var(--primary);font-weight:700;font-size:12px;
+    }
+    .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    .field{display:flex;flex-direction:column;gap:6px}
+    .field.full{grid-column:1/-1}
+    label{font-size:12px;font-weight:700;color:#4f566b}
+    input,select{
+      width:100%;border:1px solid var(--border);border-radius:12px;padding:11px 12px;
+      font-size:14px;color:var(--text);background:white;outline:none;
+    }
+    input:focus,select:focus{border-color:var(--primary-2);box-shadow:0 0 0 3px rgba(123,97,255,.12)}
+    .hint{font-size:11px;color:var(--muted);line-height:1.45}
+    .actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px}
+    button{
+      border:none;border-radius:12px;padding:11px 15px;font-weight:800;cursor:pointer;
+      transition:.2s ease;font-size:13px;
+    }
+    .btn-primary{background:var(--primary);color:white}
+    .btn-secondary{background:#eef0f7;color:#31394f}
+    .btn-outline{background:white;color:var(--primary);border:1px solid #d8d2ff}
+    button:hover{transform:translateY(-1px)}
+    .kpi-grid{
+      display:grid;grid-template-columns:repeat(4,minmax(150px,1fr));gap:12px;margin-bottom:16px;
+    }
+    .kpi{
+      background:linear-gradient(180deg,#fff,#fafaff);border:1px solid var(--border);
+      border-radius:15px;padding:16px;
+    }
+    .kpi .label{font-size:12px;color:var(--muted);font-weight:700}
+    .kpi .value{font-size:27px;font-weight:900;margin-top:5px}
+    .kpi .sub{font-size:11px;color:var(--muted);margin-top:3px}
+    .table-wrap{overflow:auto;border:1px solid var(--border);border-radius:15px}
+    table{width:100%;border-collapse:collapse;min-width:1180px}
+    th,td{padding:11px 12px;border-bottom:1px solid var(--border);text-align:right;font-size:12px;white-space:nowrap}
+    th{background:#f7f8fc;color:#50586f;font-size:11px;text-transform:uppercase;letter-spacing:.03em;position:sticky;top:0}
+    th:first-child,td:first-child{text-align:left;position:sticky;left:0;background:inherit}
+    tbody tr:hover{background:#fafaff}
+    .month-input{width:104px;text-align:right;padding:8px 9px}
+    .strong{font-weight:900;color:var(--primary)}
+    .ok{color:var(--accent);font-weight:800}
+    .warning{color:#b26700;font-weight:800}
+    .note{
+      margin-top:14px;border-left:4px solid var(--primary-2);background:#f6f4ff;
+      padding:13px 15px;border-radius:10px;font-size:12px;color:#4f566b;line-height:1.55;
+    }
+    .formula{
+      font-family:Consolas,monospace;background:#161a2b;color:#e8ebff;border-radius:12px;
+      padding:13px 15px;font-size:12px;line-height:1.6;overflow:auto;margin-top:12px;
+    }
+    .footer{
+      text-align:center;color:var(--muted);font-size:11px;padding:20px 0 2px;
+    }
+    .small-table table{min-width:0}
+    .small-table th,.small-table td{font-size:12px}
+    @media(max-width:1000px){
+      .grid{grid-template-columns:1fr}
+      .kpi-grid{grid-template-columns:repeat(2,1fr)}
+    }
+    @media(max-width:560px){
+      .shell{padding:14px}.hero{padding:24px}.form-grid{grid-template-columns:1fr}
+      .field.full{grid-column:auto}.kpi-grid{grid-template-columns:1fr 1fr}
+    }
+    @media print{
+      body{background:white}.shell{max-width:none;padding:0}.hero{box-shadow:none}
+      .grid{display:block}.settings-card,.actions,.footer{display:none}
+      .card{box-shadow:none;margin-top:12px}
+    }
+  </style>
+</head>
+<body>
+<div class="shell">
+  <section class="hero">
+    <h1>CC FTE & Erlang C Calculator</h1>
+    <p>Kalkulator manpower Contact Center 24/7 untuk menghitung kebutuhan agent online, agent terjadwal per shift, kebutuhan harian, dan roster headcount bulanan.</p>
+  </section>
+
+  <div class="grid">
+    <aside class="card settings-card">
+      <div class="section-title">
+        <h2>Parameter Perhitungan</h2>
+        <span class="badge">Auto Calculate</span>
+      </div>
+
+      <div class="form-grid">
+        <div class="field">
+          <label>Target Service Level (%)</label>
+          <input id="slTarget" type="number" min="1" max="99.9" step="0.1" value="92">
+        </div>
+        <div class="field">
+          <label>Threshold SL (detik)</label>
+          <input id="slSeconds" type="number" min="1" step="1" value="30">
+        </div>
+        <div class="field">
+          <label>AHT (detik)</label>
+          <input id="aht" type="number" min="1" step="1" value="300">
+        </div>
+        <div class="field">
+          <label>Shrinkage (%)</label>
+          <input id="shrinkage" type="number" min="0" max="95" step="0.1" value="16">
+        </div>
+        <div class="field">
+          <label>Jam Operasi / Hari</label>
+          <input id="operationHours" type="number" min="1" max="24" step="0.5" value="24">
+        </div>
+        <div class="field">
+          <label>Jam Kerja / Shift</label>
+          <input id="shiftHours" type="number" min="1" max="24" step="0.5" value="8">
+        </div>
+        <div class="field">
+          <label>Hari Kerja Agent / Bulan</label>
+          <input id="workDays" type="number" min="1" max="31" step="1" value="22">
+        </div>
+        <div class="field">
+          <label>Tahun Perencanaan</label>
+          <input id="year" type="number" min="2020" max="2100" step="1" value="2026">
+        </div>
+        <div class="field full">
+          <label>Distribusi Call</label>
+          <select id="distribution">
+            <option value="uniform" selected>Merata selama jam operasi</option>
+          </select>
+          <div class="hint">Untuk hasil final WFM yang lebih akurat, gunakan volume per interval 30 menit. Kalkulator ini memakai rata-rata bulanan.</div>
+        </div>
+      </div>
+
+      <div class="actions">
+        <button class="btn-primary" onclick="calculateAll()">Hitung Ulang</button>
+        <button class="btn-secondary" onclick="resetDefaults()">Reset</button>
+        <button class="btn-outline" onclick="window.print()">Print / PDF</button>
+        <button class="btn-outline" onclick="exportCSV()">Export CSV</button>
+      </div>
+
+      <div class="formula">
+        Traffic Erlang = Calls per Hour × AHT / 3600<br>
+        Agent Online = Minimum N yang memenuhi target SL<br>
+        Agent/Shift = ceil(Agent Online ÷ (1 − Shrinkage))<br>
+        Roster HC = ceil(Agent/Shift × Shift/Hari × Hari/Bulan ÷ Hari Kerja)
+      </div>
+    </aside>
+
+    <main>
+      <section class="card">
+        <div class="section-title">
+          <h2>Ringkasan Kebutuhan</h2>
+          <span class="badge" id="assumptionBadge">SL 92% / 30s</span>
+        </div>
+        <div class="kpi-grid">
+          <div class="kpi">
+            <div class="label">Peak Agent Online</div>
+            <div class="value" id="peakOnline">-</div>
+            <div class="sub">Produktif secara simultan</div>
+          </div>
+          <div class="kpi">
+            <div class="label">Peak Agent / Shift</div>
+            <div class="value" id="peakShift">-</div>
+            <div class="sub">Sudah termasuk shrinkage</div>
+          </div>
+          <div class="kpi">
+            <div class="label">Peak Scheduled / Hari</div>
+            <div class="value" id="peakDaily">-</div>
+            <div class="sub">Seluruh shift</div>
+          </div>
+          <div class="kpi">
+            <div class="label">Recommended Base HC</div>
+            <div class="value" id="baseHC">-</div>
+            <div class="sub">Roster tertinggi bulanan</div>
+          </div>
+        </div>
+
+        <div class="table-wrap">
+          <table id="resultTable">
+            <thead>
+              <tr>
+                <th>Bulan</th>
+                <th>Call Volume</th>
+                <th>Hari</th>
+                <th>Calls/Jam</th>
+                <th>Traffic Erlang</th>
+                <th>Agent Online</th>
+                <th>Projected SL</th>
+                <th>Agent/Shift</th>
+                <th>Shift/Hari</th>
+                <th>Scheduled/Hari</th>
+                <th>Math FTE</th>
+                <th>Roster HC</th>
+              </tr>
+            </thead>
+            <tbody id="resultBody"></tbody>
+          </table>
+        </div>
+
+        <div class="note">
+          <strong>Catatan penting:</strong> hasil berbasis rata-rata bulanan dan distribusi call merata. Untuk keputusan staffing final, masukkan pola interval 30 menit agar peak hour, pola weekday-weekend, dan seasonality dapat tercermin.
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <div class="footer">Standalone HTML • Data tersimpan otomatis di browser</div>
+</div>
+
+<script>
+const months = [
+  {name:"Jan", volume:0},
+  {name:"Feb", volume:9578},
+  {name:"Mar", volume:9038},
+  {name:"Apr", volume:12677},
+  {name:"May", volume:10658},
+  {name:"Jun", volume:11247},
+  {name:"Jul", volume:11527},
+  {name:"Aug", volume:11144},
+  {name:"Sep", volume:11306},
+  {name:"Oct", volume:11325},
+  {name:"Nov", volume:11258},
+  {name:"Dec", volume:11297}
+];
+
+let latestResults = [];
+
+function daysInMonth(year, monthIndex){
+  return new Date(year, monthIndex + 1, 0).getDate();
+}
+
+function erlangB(traffic, agents){
+  let b = 1;
+  for(let i=1;i<=agents;i++){
+    b = (traffic * b) / (i + traffic * b);
+  }
+  return b;
+}
+
+function erlangC(traffic, agents){
+  if(traffic <= 0) return 0;
+  if(agents <= traffic) return 1;
+  const b = erlangB(traffic, agents);
+  return b / (1 - traffic / agents + (traffic / agents) * b);
+}
+
+function serviceLevel(traffic, agents, targetSeconds, ahtSeconds){
+  if(traffic <= 0) return 1;
+  if(agents <= traffic) return 0;
+  const pw = erlangC(traffic, agents);
+  return 1 - pw * Math.exp(-(agents - traffic) * (targetSeconds / ahtSeconds));
+}
+
+function requiredAgents(traffic, slTarget, targetSeconds, ahtSeconds){
+  if(traffic <= 0) return {agents:0, sl:1};
+  let agents = Math.max(1, Math.floor(traffic) + 1);
+  while(agents < 10000){
+    const sl = serviceLevel(traffic, agents, targetSeconds, ahtSeconds);
+    if(sl >= slTarget) return {agents, sl};
+    agents++;
+  }
+  return {agents:agents, sl:0};
+}
+
+function fmtNumber(value, digits=2){
+  return Number(value).toLocaleString("id-ID",{
+    minimumFractionDigits:digits,
+    maximumFractionDigits:digits
+  });
+}
+
+function getInputs(){
+  return {
+    slTarget: Number(document.getElementById("slTarget").value)/100,
+    slSeconds: Number(document.getElementById("slSeconds").value),
+    aht: Number(document.getElementById("aht").value),
+    shrinkage: Number(document.getElementById("shrinkage").value)/100,
+    operationHours: Number(document.getElementById("operationHours").value),
+    shiftHours: Number(document.getElementById("shiftHours").value),
+    workDays: Number(document.getElementById("workDays").value),
+    year: Number(document.getElementById("year").value)
+  };
+}
+
+function validateInputs(p){
+  return p.slTarget > 0 && p.slTarget < 1 &&
+         p.slSeconds > 0 && p.aht > 0 &&
+         p.shrinkage >= 0 && p.shrinkage < 1 &&
+         p.operationHours > 0 && p.shiftHours > 0 &&
+         p.workDays > 0 && p.year > 0;
+}
+
+function calculateAll(){
+  const p = getInputs();
+  if(!validateInputs(p)){
+    alert("Mohon periksa parameter. Pastikan semua angka valid.");
+    return;
+  }
+
+  const rows = [];
+  let peakOnline=0, peakShift=0, peakDaily=0, baseHC=0;
+  const shiftsPerDay = Math.ceil(p.operationHours / p.shiftHours);
+
+  months.forEach((m, index)=>{
+    const volumeEl = document.getElementById(`vol-${index}`);
+    const volume = volumeEl ? Number(volumeEl.value.replace(/,/g,"")) || 0 : m.volume;
+    const days = daysInMonth(p.year,index);
+    const callsPerHour = volume > 0 ? volume / (days * p.operationHours) : 0;
+    const traffic = callsPerHour * p.aht / 3600;
+
+    const req = requiredAgents(traffic,p.slTarget,p.slSeconds,p.aht);
+    const onlineAgents = req.agents;
+    const agentPerShift = onlineAgents > 0 ? Math.ceil(onlineAgents / (1-p.shrinkage)) : 0;
+    const scheduledDaily = agentPerShift * shiftsPerDay;
+
+    const monthlyOpenHours = days * p.operationHours;
+    const productiveHoursPerFTE = p.workDays * p.shiftHours * (1-p.shrinkage);
+    const mathFTE = productiveHoursPerFTE > 0 ? (onlineAgents * monthlyOpenHours) / productiveHoursPerFTE : 0;
+    const rosterHC = p.workDays > 0 ? Math.ceil((scheduledDaily * days) / p.workDays) : 0;
+
+    rows.push({
+      month:m.name, volume, days, callsPerHour, traffic,
+      onlineAgents, projectedSL:req.sl, agentPerShift,
+      shiftsPerDay, scheduledDaily, mathFTE, rosterHC
+    });
+
+    peakOnline=Math.max(peakOnline,onlineAgents);
+    peakShift=Math.max(peakShift,agentPerShift);
+    peakDaily=Math.max(peakDaily,scheduledDaily);
+    baseHC=Math.max(baseHC,rosterHC);
+  });
+
+  latestResults = rows;
+  renderResults(rows);
+  document.getElementById("peakOnline").textContent = peakOnline;
+  document.getElementById("peakShift").textContent = peakShift;
+  document.getElementById("peakDaily").textContent = peakDaily;
+  document.getElementById("baseHC").textContent = baseHC;
+  document.getElementById("assumptionBadge").textContent =
+    `SL ${(p.slTarget*100).toFixed(1).replace(".0","")}% / ${p.slSeconds}s`;
+
+  saveState();
+}
+
+function renderResults(rows){
+  const tbody = document.getElementById("resultBody");
+  tbody.innerHTML = rows.map((r,i)=>`
+    <tr>
+      <td><strong>${r.month}</strong></td>
+      <td><input class="month-input" id="vol-${i}" type="text"
+          value="${r.volume.toLocaleString("en-US")}"
+          oninput="sanitizeVolume(this)" onchange="calculateAll()" onblur="calculateAll()"></td>
+      <td>${r.days}</td>
+      <td>${fmtNumber(r.callsPerHour)}</td>
+      <td>${fmtNumber(r.traffic)}</td>
+      <td class="strong">${r.onlineAgents}</td>
+      <td class="${r.projectedSL>=getInputs().slTarget ? "ok":"warning"}">${fmtNumber(r.projectedSL*100,1)}%</td>
+      <td class="strong">${r.agentPerShift}</td>
+      <td>${r.shiftsPerDay}</td>
+      <td>${r.scheduledDaily}</td>
+      <td>${fmtNumber(r.mathFTE)}</td>
+      <td class="strong">${r.rosterHC}</td>
+    </tr>
+  `).join("");
+}
+
+function sanitizeVolume(el){
+  const numeric = el.value.replace(/[^\d]/g,"");
+  el.value = numeric ? Number(numeric).toLocaleString("en-US") : "0";
+}
+
+function saveState(){
+  const p = getInputs();
+  const volumes = months.map((m,i)=>{
+    const el=document.getElementById(`vol-${i}`);
+    return el ? Number(el.value.replace(/,/g,""))||0 : m.volume;
+  });
+  localStorage.setItem("ccFteCalculator",JSON.stringify({p,volumes}));
+}
+
+function loadState(){
+  const raw=localStorage.getItem("ccFteCalculator");
+  if(!raw) return false;
+  try{
+    const state=JSON.parse(raw);
+    if(state.p){
+      document.getElementById("slTarget").value=(state.p.slTarget*100);
+      document.getElementById("slSeconds").value=state.p.slSeconds;
+      document.getElementById("aht").value=state.p.aht;
+      document.getElementById("shrinkage").value=(state.p.shrinkage*100);
+      document.getElementById("operationHours").value=state.p.operationHours;
+      document.getElementById("shiftHours").value=state.p.shiftHours;
+      document.getElementById("workDays").value=state.p.workDays;
+      document.getElementById("year").value=state.p.year;
+    }
+    if(Array.isArray(state.volumes)){
+      state.volumes.forEach((v,i)=>{ if(months[i]) months[i].volume=v; });
+    }
+    return true;
+  }catch(e){ return false; }
+}
+
+function resetDefaults(){
+  localStorage.removeItem("ccFteCalculator");
+  document.getElementById("slTarget").value=92;
+  document.getElementById("slSeconds").value=30;
+  document.getElementById("aht").value=300;
+  document.getElementById("shrinkage").value=16;
+  document.getElementById("operationHours").value=24;
+  document.getElementById("shiftHours").value=8;
+  document.getElementById("workDays").value=22;
+  document.getElementById("year").value=2026;
+  const defaults=[0,9578,9038,12677,10658,11247,11527,11144,11306,11325,11258,11297];
+  defaults.forEach((v,i)=>months[i].volume=v);
+  initialRender();
+}
+
+function exportCSV(){
+  if(!latestResults.length) calculateAll();
+  const headers=["Month","Call Volume","Days","Calls per Hour","Traffic Erlang","Online Agents","Projected SL","Agents per Shift","Shifts per Day","Scheduled per Day","Mathematical FTE","Roster HC"];
+  const lines=[headers.join(",")];
+  latestResults.forEach(r=>{
+    lines.push([
+      r.month,r.volume,r.days,r.callsPerHour.toFixed(2),r.traffic.toFixed(2),
+      r.onlineAgents,(r.projectedSL*100).toFixed(1)+"%",r.agentPerShift,
+      r.shiftsPerDay,r.scheduledDaily,r.mathFTE.toFixed(2),r.rosterHC
+    ].join(","));
+  });
+  const blob=new Blob([lines.join("\n")],{type:"text/csv;charset=utf-8;"});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement("a");
+  a.href=url;a.download="cc_fte_erlang_c_result.csv";a.click();
+  URL.revokeObjectURL(url);
+}
+
+function initialRender(){
+  const p=getInputs();
+  const dummy=months.map((m,index)=>({
+    month:m.name,volume:m.volume,days:daysInMonth(p.year,index),callsPerHour:0,traffic:0,
+    onlineAgents:0,projectedSL:1,agentPerShift:0,
+    shiftsPerDay:Math.ceil(p.operationHours/p.shiftHours),scheduledDaily:0,mathFTE:0,rosterHC:0
+  }));
+  renderResults(dummy);
+  calculateAll();
+}
+
+["slTarget","slSeconds","aht","shrinkage","operationHours","shiftHours","workDays","year"]
+  .forEach(id=>document.getElementById(id).addEventListener("input",calculateAll));
+
+loadState();
+initialRender();
+</script>
+</body>
+</html>
